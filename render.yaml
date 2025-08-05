@@ -1,9 +1,14 @@
 services:
-  # Backend API
+  # Combined Frontend + Backend Service
   - type: web
-    name: todo-backend
+    name: todo-app
     env: python
-    buildCommand: "cd backend && pip install -r requirements.txt"
+    buildCommand: |
+      echo "Building frontend..."
+      cd frontend && npm install && npm run build
+      echo "Installing backend dependencies..."
+      cd ../backend && pip install -r requirements.txt
+      echo "Build completed successfully!"
     startCommand: "cd backend && gunicorn --bind 0.0.0.0:$PORT app:app"
     envVars:
       - key: FLASK_ENV
@@ -12,19 +17,6 @@ services:
         fromDatabase:
           name: todo-db
           property: connectionString
-
-  # Frontend
-  - type: web
-    name: todo-frontend
-    env: node
-    buildCommand: "cd frontend && npm install && npm run build"
-    startCommand: "cd frontend && npx serve -s build -l $PORT"
-    envVars:
-      - key: REACT_APP_API_URL
-        fromService:
-          type: web
-          name: todo-backend
-          property: host
 
 databases:
   - name: todo-db
