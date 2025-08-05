@@ -1078,6 +1078,106 @@ def debug_token():
 def health_check():
     return jsonify({'status': 'healthy'})
 
+# Add specific route for static files
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    from flask import send_from_directory, send_file
+    import os
+    
+    # Multiple possible paths for the frontend build directory
+    possible_paths = [
+        os.path.join(os.path.dirname(__file__), '..', 'frontend', 'build'),  # Local development
+        os.path.join(os.getcwd(), 'frontend', 'build'),  # Render deployment
+        os.path.join('/', 'app', 'frontend', 'build'),  # Alternative Render path
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'build')  # Another alternative
+    ]
+    
+    frontend_dir = None
+    for possible_path in possible_paths:
+        if os.path.exists(possible_path):
+            frontend_dir = possible_path
+            break
+    
+    if not frontend_dir:
+        return jsonify({
+            'error': 'Frontend build directory not found for static files',
+            'requested_file': filename,
+            'checked_paths': possible_paths,
+            'current_dir': os.getcwd()
+        }), 404
+    
+    static_file_path = os.path.join(frontend_dir, 'static', filename)
+    
+    if os.path.exists(static_file_path):
+        return send_file(static_file_path)
+    else:
+        # Debug: List what's actually in the static directory
+        static_dir = os.path.join(frontend_dir, 'static')
+        if os.path.exists(static_dir):
+            available_files = []
+            for root, dirs, files in os.walk(static_dir):
+                for file in files:
+                    rel_path = os.path.relpath(os.path.join(root, file), static_dir)
+                    available_files.append(rel_path)
+        else:
+            available_files = ['static directory does not exist']
+        
+        return jsonify({
+            'error': 'Static file not found',
+            'requested_file': filename,
+            'static_file_path': static_file_path,
+            'frontend_dir': frontend_dir,
+            'available_files': available_files[:20]  # Limit to first 20 files
+        }), 404
+
+# Debug route to check build directory contents
+@app.route('/debug/build-info')
+def debug_build_info():
+    import os
+    
+    possible_paths = [
+        os.path.join(os.path.dirname(__file__), '..', 'frontend', 'build'),
+        os.path.join(os.getcwd(), 'frontend', 'build'),
+        os.path.join('/', 'app', 'frontend', 'build'),
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'build')
+    ]
+    
+    debug_info = {
+        'current_dir': os.getcwd(),
+        'app_file_dir': os.path.dirname(__file__),
+        'checked_paths': [],
+        'found_build_dir': None,
+        'build_contents': None
+    }
+    
+    for path in possible_paths:
+        path_info = {
+            'path': path,
+            'exists': os.path.exists(path),
+            'contents': None
+        }
+        
+        if os.path.exists(path):
+            try:
+                path_info['contents'] = os.listdir(path)
+                if debug_info['found_build_dir'] is None:
+                    debug_info['found_build_dir'] = path
+                    # Get detailed contents
+                    build_contents = {}
+                    for item in os.listdir(path):
+                        item_path = os.path.join(path, item)
+                        if os.path.isdir(item_path):
+                            build_contents[item] = os.listdir(item_path)[:10]  # First 10 files
+                        else:
+                            build_contents[item] = 'file'
+                    debug_info['build_contents'] = build_contents
+            except Exception as e:
+                path_info['error'] = str(e)
+        
+        debug_info['checked_paths'].append(path_info)
+    
+    return jsonify(debug_info)
+
 # Serve React frontend (for single service deployment)
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
@@ -1088,6 +1188,14 @@ def serve_frontend(path):
     # If it's an API route, let Flask handle it normally
     if path.startswith('api/'):
         return jsonify({'error': 'API endpoint not found'}), 404
+    
+    # If it's a debug route, let Flask handle it
+    if path.startswith('debug/'):
+        return jsonify({'error': 'Debug endpoint not found'}), 404
+    
+    # Static files are now handled by the specific /static/ route above
+    if path.startswith('static/'):
+        return jsonify({'error': 'Static files should be handled by /static/ route'}), 404
     
     # Multiple possible paths for the frontend build directory
     possible_paths = [
@@ -1117,22 +1225,10 @@ def serve_frontend(path):
                 <h1>🎯 Todo Application</h1>
                 <p><strong>✅ Backend Status:</strong> Running successfully</p>
                 <p><strong>⚠️ Frontend Status:</strong> Build directory not found</p>
-                <p><strong>Debug Info:</strong></p>
-                <ul>
-                    <li>Current directory: ''' + os.getcwd() + '''</li>
-                    <li>Checked paths: ''' + str(possible_paths) + '''</li>
-                </ul>
+                <p><a href="/debug/build-info">🔍 Debug Build Info</a></p>
             </body>
             </html>
             '''
-    
-    # Handle static files (CSS, JS, images, etc.)
-    if path.startswith('static/'):
-        file_path = os.path.join(frontend_dir, path)
-        if os.path.exists(file_path):
-            return send_file(file_path)
-        else:
-            return jsonify({'error': f'Static file not found: {path}'}), 404
     
     # Handle other specific files
     if path and not path.endswith('/'):
