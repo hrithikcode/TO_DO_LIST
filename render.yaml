@@ -4,11 +4,25 @@ services:
     name: todo-app
     env: python
     buildCommand: |
-      echo "Building frontend..."
-      cd frontend && npm install && npm run build
-      echo "Installing backend dependencies..."
-      cd ../backend && pip install -r requirements.txt
-      echo "Build completed successfully!"
+      echo "=== Starting build process ==="
+      echo "Current directory: $(pwd)"
+      echo "Directory contents: $(ls -la)"
+      
+      echo "=== Building frontend ==="
+      cd frontend
+      echo "Frontend directory contents: $(ls -la)"
+      npm install
+      npm run build
+      echo "Build directory contents: $(ls -la build/)"
+      
+      echo "=== Installing backend dependencies ==="
+      cd ../backend
+      pip install -r requirements.txt
+      
+      echo "=== Build completed successfully! ==="
+      echo "Final directory structure:"
+      cd ..
+      find . -name "build" -type d
     startCommand: "cd backend && gunicorn --bind 0.0.0.0:$PORT app:app"
     envVars:
       - key: FLASK_ENV
