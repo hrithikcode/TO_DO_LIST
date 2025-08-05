@@ -11,7 +11,7 @@ services:
       echo "Directory contents:"
       ls -la
       
-      echo "=== Checking Node.js ==="
+      echo "=== Node.js Setup ==="
       node --version || echo "Node.js not found"
       npm --version || echo "NPM not found"
       
@@ -33,10 +33,20 @@ services:
         exit 1
       fi
       
+      # Set environment variables for React build
+      export NODE_ENV=production
+      export REACT_APP_API_URL=""
+      export REACT_APP_GOOGLE_CLIENT_ID="1061629015725-2vtips7lb4cmn2kd66qighirp368gf4b.apps.googleusercontent.com"
+      export GENERATE_SOURCEMAP=false
+      
       echo "Installing frontend dependencies..."
       npm install --verbose
       
-      echo "Building frontend..."
+      echo "Building frontend with environment variables..."
+      echo "NODE_ENV=$NODE_ENV"
+      echo "REACT_APP_API_URL=$REACT_APP_API_URL"
+      echo "REACT_APP_GOOGLE_CLIENT_ID=$REACT_APP_GOOGLE_CLIENT_ID"
+      
       npm run build --verbose
       
       # Verify build was successful
@@ -44,6 +54,8 @@ services:
         echo "ERROR: Frontend build failed - no build directory created!"
         echo "Checking for any build artifacts:"
         ls -la
+        echo "Checking npm logs:"
+        npm run build || true
         exit 1
       fi
       
@@ -56,6 +68,19 @@ services:
         echo "ERROR: build/index.html not found!"
         exit 1
       fi
+      
+      # Check static directory
+      if [ -d "build/static" ]; then
+        echo "Static directory contents:"
+        find build/static -type f -name "*.js" -o -name "*.css" | head -10
+      else
+        echo "WARNING: build/static directory not found!"
+      fi
+      
+      # Show what files index.html is trying to load
+      echo "Files referenced in index.html:"
+      grep -o 'src="[^"]*"' build/index.html || true
+      grep -o 'href="[^"]*\.css"' build/index.html || true
       
       echo "=== Backend Dependencies ==="
       cd ../backend
@@ -72,8 +97,12 @@ services:
       echo "Verifying build directory exists:"
       if [ -d "frontend/build" ]; then
         echo "✅ frontend/build directory exists"
-        echo "Contents:"
-        ls -la frontend/build/
+        echo "Total files in build:"
+        find frontend/build -type f | wc -l
+        echo "JavaScript files:"
+        find frontend/build -name "*.js" | head -5
+        echo "CSS files:"
+        find frontend/build -name "*.css" | head -5
       else
         echo "❌ frontend/build directory missing!"
         exit 1
