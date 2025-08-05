@@ -4,16 +4,29 @@ services:
     name: todo-app
     env: python
     buildCommand: |
-      set -e  # Exit on any error
+      set -e
       
-      echo "=== Starting build process ==="
+      echo "=== Build Environment Info ==="
       echo "Current directory: $(pwd)"
-      echo "Directory contents:"
+      echo "User: $(whoami)"
+      echo "Node version: $(node --version || echo 'Node not found')"
+      echo "NPM version: $(npm --version || echo 'NPM not found')"
+      echo "Python version: $(python3 --version || echo 'Python not found')"
+      
+      echo "=== Directory Structure Before Build ==="
       ls -la
       
-      echo "=== Building frontend ==="
+      echo "=== Installing Node.js if needed ==="
+      if ! command -v node &> /dev/null; then
+        curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+        apt-get install -y nodejs
+      fi
+      
+      echo "=== Building Frontend ==="
       if [ ! -d "frontend" ]; then
         echo "ERROR: frontend directory not found!"
+        echo "Available directories:"
+        ls -la
         exit 1
       fi
       
@@ -21,37 +34,42 @@ services:
       echo "Frontend directory contents:"
       ls -la
       
-      # Install frontend dependencies
+      # Clean install
       echo "Installing frontend dependencies..."
-      npm ci --only=production
+      npm ci
       
-      # Build frontend
-      echo "Building frontend..."
-      npm run build
+      # Build with explicit environment
+      echo "Building frontend with production environment..."
+      NODE_ENV=production npm run build
       
-      # Verify build was created
+      # Verify build
       if [ ! -d "build" ]; then
-        echo "ERROR: Frontend build failed - build directory not created!"
+        echo "ERROR: Frontend build failed!"
+        echo "NPM build output:"
+        npm run build || true
         exit 1
       fi
       
+      echo "✅ Frontend build successful!"
       echo "Build directory contents:"
       ls -la build/
       
-      echo "=== Installing backend dependencies ==="
+      echo "=== Installing Backend Dependencies ==="
       cd ../backend
       
       if [ ! -f "requirements.txt" ]; then
-        echo "ERROR: requirements.txt not found!"
+        echo "ERROR: requirements.txt not found in backend directory!"
+        ls -la
         exit 1
       fi
       
-      pip install -r requirements.txt
+      pip install --no-cache-dir -r requirements.txt
       
-      echo "=== Verifying final structure ==="
+      echo "=== Final Verification ==="
       cd ..
-      echo "Final directory structure:"
-      find . -name "build" -type d -exec ls -la {} \;
+      echo "Final project structure:"
+      find . -name "build" -type d -exec echo "Found build directory: {}" \;
+      find . -name "index.html" -path "*/build/*" -exec echo "Found index.html: {}" \;
       
       echo "=== Build completed successfully! ==="
     startCommand: "cd backend && gunicorn --bind 0.0.0.0:$PORT app:app"

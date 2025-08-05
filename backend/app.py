@@ -1103,17 +1103,55 @@ def serve_frontend(path):
             frontend_dir = possible_path
             break
     
-    # Debug: Check if frontend directory exists
+    # If no frontend build directory found, serve static fallback
     if not frontend_dir:
-        return jsonify({
-            'error': 'Frontend build directory not found',
-            'current_dir': os.getcwd(),
-            'app_file_dir': os.path.dirname(__file__),
-            'checked_paths': possible_paths,
-            'directory_contents': os.listdir(os.getcwd()) if os.path.exists(os.getcwd()) else 'Current dir does not exist'
-        }), 500
+        static_fallback = os.path.join(os.path.dirname(__file__), 'static', 'index.html')
+        if os.path.exists(static_fallback):
+            return send_file(static_fallback)
+        else:
+            # Create the static directory if it doesn't exist
+            static_dir = os.path.join(os.path.dirname(__file__), 'static')
+            os.makedirs(static_dir, exist_ok=True)
+            
+            # Return a simple HTML response
+            return '''
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Todo App - Backend Running</title>
+                <style>
+                    body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+                    .status { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0; }
+                    .error { background: #ffe8e8; padding: 15px; border-radius: 5px; margin: 20px 0; }
+                </style>
+            </head>
+            <body>
+                <h1>🎯 Todo Application</h1>
+                <div class="status">
+                    <strong>✅ Backend Status:</strong> Running successfully on Render
+                </div>
+                <div class="error">
+                    <strong>⚠️ Frontend Status:</strong> Build directory not found. The React frontend build process may have failed.
+                </div>
+                <h3>API Endpoints Available:</h3>
+                <ul>
+                    <li><a href="/api/health">/api/health</a> - Health check</li>
+                    <li>POST /api/login - User login</li>
+                    <li>POST /api/register - User registration</li>
+                    <li>GET /api/todos - Get todos (requires auth)</li>
+                    <li>POST /api/auth/google - Google OAuth</li>
+                </ul>
+                <p><strong>Debug Info:</strong></p>
+                <ul>
+                    <li>Current directory: ''' + os.getcwd() + '''</li>
+                    <li>App file directory: ''' + os.path.dirname(__file__) + '''</li>
+                    <li>Checked paths: ''' + str(possible_paths) + '''</li>
+                </ul>
+            </body>
+            </html>
+            '''
     
-    # Serve static files
+    # Serve static files from build directory
     if path != "":
         file_path = os.path.join(frontend_dir, path)
         if os.path.exists(file_path):
