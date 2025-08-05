@@ -1109,55 +1109,38 @@ def serve_frontend(path):
         if os.path.exists(static_fallback):
             return send_file(static_fallback)
         else:
-            # Create the static directory if it doesn't exist
-            static_dir = os.path.join(os.path.dirname(__file__), 'static')
-            os.makedirs(static_dir, exist_ok=True)
-            
-            # Return a simple HTML response
             return '''
             <!DOCTYPE html>
             <html>
-            <head>
-                <title>Todo App - Backend Running</title>
-                <style>
-                    body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
-                    .status { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0; }
-                    .error { background: #ffe8e8; padding: 15px; border-radius: 5px; margin: 20px 0; }
-                </style>
-            </head>
+            <head><title>Todo App - Backend Running</title></head>
             <body>
                 <h1>🎯 Todo Application</h1>
-                <div class="status">
-                    <strong>✅ Backend Status:</strong> Running successfully on Render
-                </div>
-                <div class="error">
-                    <strong>⚠️ Frontend Status:</strong> Build directory not found. The React frontend build process may have failed.
-                </div>
-                <h3>API Endpoints Available:</h3>
-                <ul>
-                    <li><a href="/api/health">/api/health</a> - Health check</li>
-                    <li>POST /api/login - User login</li>
-                    <li>POST /api/register - User registration</li>
-                    <li>GET /api/todos - Get todos (requires auth)</li>
-                    <li>POST /api/auth/google - Google OAuth</li>
-                </ul>
+                <p><strong>✅ Backend Status:</strong> Running successfully</p>
+                <p><strong>⚠️ Frontend Status:</strong> Build directory not found</p>
                 <p><strong>Debug Info:</strong></p>
                 <ul>
                     <li>Current directory: ''' + os.getcwd() + '''</li>
-                    <li>App file directory: ''' + os.path.dirname(__file__) + '''</li>
                     <li>Checked paths: ''' + str(possible_paths) + '''</li>
                 </ul>
             </body>
             </html>
             '''
     
-    # Serve static files from build directory
-    if path != "":
+    # Handle static files (CSS, JS, images, etc.)
+    if path.startswith('static/'):
         file_path = os.path.join(frontend_dir, path)
         if os.path.exists(file_path):
-            return send_from_directory(frontend_dir, path)
+            return send_file(file_path)
+        else:
+            return jsonify({'error': f'Static file not found: {path}'}), 404
     
-    # For React Router - serve index.html for all non-API routes
+    # Handle other specific files
+    if path and not path.endswith('/'):
+        file_path = os.path.join(frontend_dir, path)
+        if os.path.exists(file_path):
+            return send_file(file_path)
+    
+    # For React Router - serve index.html for all other routes
     index_path = os.path.join(frontend_dir, 'index.html')
     if os.path.exists(index_path):
         return send_file(index_path)
