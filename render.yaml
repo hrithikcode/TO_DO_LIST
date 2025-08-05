@@ -83,17 +83,19 @@ services:
       grep -o 'href="[^"]*\.css"' build/index.html || true
       
       echo "=== Backend Dependencies ==="
-      cd ../backend
+      cd ..
       
       if [ ! -f "requirements.txt" ]; then
-        echo "ERROR: requirements.txt not found!"
+        echo "ERROR: requirements.txt not found in root directory!"
+        echo "Root directory contents:"
+        ls -la
         exit 1
       fi
       
+      echo "Installing Python dependencies from root requirements.txt..."
       pip install -r requirements.txt
       
       echo "=== Final Verification ==="
-      cd ..
       echo "Verifying build directory exists:"
       if [ -d "frontend/build" ]; then
         echo "✅ frontend/build directory exists"
