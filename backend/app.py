@@ -1089,15 +1089,28 @@ def serve_frontend(path):
     if path.startswith('api/'):
         return jsonify({'error': 'API endpoint not found'}), 404
     
-    # Path to your built React app
-    frontend_dir = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'build')
+    # Multiple possible paths for the frontend build directory
+    possible_paths = [
+        os.path.join(os.path.dirname(__file__), '..', 'frontend', 'build'),  # Local development
+        os.path.join(os.getcwd(), 'frontend', 'build'),  # Render deployment
+        os.path.join('/', 'app', 'frontend', 'build'),  # Alternative Render path
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'build')  # Another alternative
+    ]
+    
+    frontend_dir = None
+    for possible_path in possible_paths:
+        if os.path.exists(possible_path):
+            frontend_dir = possible_path
+            break
     
     # Debug: Check if frontend directory exists
-    if not os.path.exists(frontend_dir):
+    if not frontend_dir:
         return jsonify({
             'error': 'Frontend build directory not found',
-            'expected_path': frontend_dir,
-            'current_dir': os.path.dirname(__file__)
+            'current_dir': os.getcwd(),
+            'app_file_dir': os.path.dirname(__file__),
+            'checked_paths': possible_paths,
+            'directory_contents': os.listdir(os.getcwd()) if os.path.exists(os.getcwd()) else 'Current dir does not exist'
         }), 500
     
     # Serve static files

@@ -4,25 +4,56 @@ services:
     name: todo-app
     env: python
     buildCommand: |
+      set -e  # Exit on any error
+      
       echo "=== Starting build process ==="
       echo "Current directory: $(pwd)"
-      echo "Directory contents: $(ls -la)"
+      echo "Directory contents:"
+      ls -la
       
       echo "=== Building frontend ==="
+      if [ ! -d "frontend" ]; then
+        echo "ERROR: frontend directory not found!"
+        exit 1
+      fi
+      
       cd frontend
-      echo "Frontend directory contents: $(ls -la)"
-      npm install
+      echo "Frontend directory contents:"
+      ls -la
+      
+      # Install frontend dependencies
+      echo "Installing frontend dependencies..."
+      npm ci --only=production
+      
+      # Build frontend
+      echo "Building frontend..."
       npm run build
-      echo "Build directory contents: $(ls -la build/)"
+      
+      # Verify build was created
+      if [ ! -d "build" ]; then
+        echo "ERROR: Frontend build failed - build directory not created!"
+        exit 1
+      fi
+      
+      echo "Build directory contents:"
+      ls -la build/
       
       echo "=== Installing backend dependencies ==="
       cd ../backend
+      
+      if [ ! -f "requirements.txt" ]; then
+        echo "ERROR: requirements.txt not found!"
+        exit 1
+      fi
+      
       pip install -r requirements.txt
       
-      echo "=== Build completed successfully! ==="
-      echo "Final directory structure:"
+      echo "=== Verifying final structure ==="
       cd ..
-      find . -name "build" -type d
+      echo "Final directory structure:"
+      find . -name "build" -type d -exec ls -la {} \;
+      
+      echo "=== Build completed successfully! ==="
     startCommand: "cd backend && gunicorn --bind 0.0.0.0:$PORT app:app"
     envVars:
       - key: FLASK_ENV
@@ -31,6 +62,24 @@ services:
         fromDatabase:
           name: todo-db
           property: connectionString
+      - key: GOOGLE_CLIENT_ID
+        value: 1061629015725-2vtips7lb4cmn2kd66qighirp368gf4b.apps.googleusercontent.com
+      - key: GOOGLE_CLIENT_SECRET
+        value: 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
+      - key: JWT_SECRET_KEY
+        value: 1ZmP9YJu916BES4-6qeumsm_qeO48ktV_UcR6EL-gK4
+      - key: MAIL_SERVER
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: 587
+      - key: MAIL_USE_TLS
+        value: True
+      - key: MAIL_USERNAME
+        value: shwetay1508@gmail.com
+      - key: MAIL_PASSWORD
+        value: bjzdrpuqoyqabsca
+      - key: MAIL_DEFAULT_SENDER
+        value: shwetay1508@gmail.com
 
 databases:
   - name: todo-db
