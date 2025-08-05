@@ -1082,22 +1082,40 @@ def health_check():
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_frontend(path):
-    from flask import send_from_directory
+    from flask import send_from_directory, send_file
     import os
-    
-    # Path to your built React app
-    frontend_dir = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'build')
     
     # If it's an API route, let Flask handle it normally
     if path.startswith('api/'):
         return jsonify({'error': 'API endpoint not found'}), 404
     
+    # Path to your built React app
+    frontend_dir = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'build')
+    
+    # Debug: Check if frontend directory exists
+    if not os.path.exists(frontend_dir):
+        return jsonify({
+            'error': 'Frontend build directory not found',
+            'expected_path': frontend_dir,
+            'current_dir': os.path.dirname(__file__)
+        }), 500
+    
     # Serve static files
-    if path != "" and os.path.exists(os.path.join(frontend_dir, path)):
-        return send_from_directory(frontend_dir, path)
+    if path != "":
+        file_path = os.path.join(frontend_dir, path)
+        if os.path.exists(file_path):
+            return send_from_directory(frontend_dir, path)
+    
+    # For React Router - serve index.html for all non-API routes
+    index_path = os.path.join(frontend_dir, 'index.html')
+    if os.path.exists(index_path):
+        return send_file(index_path)
     else:
-        # For React Router - serve index.html for all non-API routes
-        return send_from_directory(frontend_dir, 'index.html')
+        return jsonify({
+            'error': 'index.html not found',
+            'frontend_dir': frontend_dir,
+            'files': os.listdir(frontend_dir) if os.path.exists(frontend_dir) else 'Directory does not exist'
+        }), 500
 
 # Create tables
 with app.app_context():
