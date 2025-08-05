@@ -8,21 +8,14 @@ services:
       
       echo "=== Build Environment Info ==="
       echo "Current directory: $(pwd)"
-      echo "User: $(whoami)"
-      echo "Node version: $(node --version || echo 'Node not found')"
-      echo "NPM version: $(npm --version || echo 'NPM not found')"
-      echo "Python version: $(python3 --version || echo 'Python not found')"
-      
-      echo "=== Directory Structure Before Build ==="
+      echo "Directory contents:"
       ls -la
       
-      echo "=== Installing Node.js if needed ==="
-      if ! command -v node &> /dev/null; then
-        curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-        apt-get install -y nodejs
-      fi
+      echo "=== Checking Node.js ==="
+      node --version || echo "Node.js not found"
+      npm --version || echo "NPM not found"
       
-      echo "=== Building Frontend ==="
+      echo "=== Frontend Build Process ==="
       if [ ! -d "frontend" ]; then
         echo "ERROR: frontend directory not found!"
         echo "Available directories:"
@@ -34,19 +27,23 @@ services:
       echo "Frontend directory contents:"
       ls -la
       
-      # Clean install
+      # Check if package.json exists
+      if [ ! -f "package.json" ]; then
+        echo "ERROR: package.json not found in frontend directory!"
+        exit 1
+      fi
+      
       echo "Installing frontend dependencies..."
-      npm ci
+      npm install --verbose
       
-      # Build with explicit environment
-      echo "Building frontend with production environment..."
-      NODE_ENV=production npm run build
+      echo "Building frontend..."
+      npm run build --verbose
       
-      # Verify build
+      # Verify build was successful
       if [ ! -d "build" ]; then
-        echo "ERROR: Frontend build failed!"
-        echo "NPM build output:"
-        npm run build || true
+        echo "ERROR: Frontend build failed - no build directory created!"
+        echo "Checking for any build artifacts:"
+        ls -la
         exit 1
       fi
       
@@ -54,27 +51,40 @@ services:
       echo "Build directory contents:"
       ls -la build/
       
-      echo "=== Installing Backend Dependencies ==="
-      cd ../backend
-      
-      if [ ! -f "requirements.txt" ]; then
-        echo "ERROR: requirements.txt not found in backend directory!"
-        ls -la
+      # Verify critical files exist
+      if [ ! -f "build/index.html" ]; then
+        echo "ERROR: build/index.html not found!"
         exit 1
       fi
       
-      pip install --no-cache-dir -r requirements.txt
+      echo "=== Backend Dependencies ==="
+      cd ../backend
+      
+      if [ ! -f "requirements.txt" ]; then
+        echo "ERROR: requirements.txt not found!"
+        exit 1
+      fi
+      
+      pip install -r requirements.txt
       
       echo "=== Final Verification ==="
       cd ..
-      echo "Final project structure:"
-      find . -name "build" -type d -exec echo "Found build directory: {}" \;
-      find . -name "index.html" -path "*/build/*" -exec echo "Found index.html: {}" \;
+      echo "Verifying build directory exists:"
+      if [ -d "frontend/build" ]; then
+        echo "✅ frontend/build directory exists"
+        echo "Contents:"
+        ls -la frontend/build/
+      else
+        echo "❌ frontend/build directory missing!"
+        exit 1
+      fi
       
       echo "=== Build completed successfully! ==="
     startCommand: "cd backend && gunicorn --bind 0.0.0.0:$PORT app:app"
     envVars:
       - key: FLASK_ENV
+        value: production
+      - key: NODE_ENV
         value: production
       - key: DATABASE_URL
         fromDatabase:
