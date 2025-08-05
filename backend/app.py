@@ -1078,6 +1078,27 @@ def debug_token():
 def health_check():
     return jsonify({'status': 'healthy'})
 
+# Serve React frontend (for single service deployment)
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_frontend(path):
+    from flask import send_from_directory
+    import os
+    
+    # Path to your built React app
+    frontend_dir = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'build')
+    
+    # If it's an API route, let Flask handle it normally
+    if path.startswith('api/'):
+        return jsonify({'error': 'API endpoint not found'}), 404
+    
+    # Serve static files
+    if path != "" and os.path.exists(os.path.join(frontend_dir, path)):
+        return send_from_directory(frontend_dir, path)
+    else:
+        # For React Router - serve index.html for all non-API routes
+        return send_from_directory(frontend_dir, 'index.html')
+
 # Create tables
 with app.app_context():
     db.create_all()
